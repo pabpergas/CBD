@@ -30,6 +30,35 @@ const AUDIO_TYPES = [
   "audio/ogg",
 ];
 
+// Extensiones tratadas como texto aunque el MIME detectado sea application/*.
+// Cubre código fuente y formatos de configuración típicos en proyectos.
+const TEXT_EXTENSIONS = new Set([
+  "ts", "tsx", "js", "jsx", "mjs", "cjs",
+  "json", "jsonc", "yaml", "yml", "toml", "ini", "env",
+  "md", "mdx", "txt", "log", "csv", "tsv",
+  "html", "htm", "css", "scss", "sass", "less",
+  "py", "rb", "go", "rs", "java", "kt", "swift",
+  "c", "h", "cpp", "hpp", "cc", "cs",
+  "php", "sh", "bash", "zsh", "fish", "ps1",
+  "sql", "graphql", "gql", "proto",
+  "dockerfile", "gitignore", "dockerignore", "editorconfig",
+  "xml", "svg", "vue", "svelte", "astro",
+]);
+
+function isProbablyText(filePath: string): boolean {
+  // Heurística: sin bytes nulos en los primeros 8 KB → probablemente texto
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const buf = Buffer.alloc(8192);
+    const bytes = fs.readSync(fd, buf, 0, buf.length, 0);
+    fs.closeSync(fd);
+    for (let i = 0; i < bytes; i++) if (buf[i] === 0) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function processFile(
   filePath: string,
   originalName: string,
@@ -51,6 +80,13 @@ export async function processFile(
   }
 
   if (mimeType.startsWith("text/")) {
+    return processPlainText(filePath, originalName, collection);
+  }
+
+  // Fallback: extensiones de código/config o archivos sin extensión que parecen texto
+  const base = originalName.split("/").pop() || originalName;
+  const ext = base.includes(".") ? base.split(".").pop()!.toLowerCase() : base.toLowerCase();
+  if (TEXT_EXTENSIONS.has(ext) || isProbablyText(filePath)) {
     return processPlainText(filePath, originalName, collection);
   }
 

@@ -6,10 +6,9 @@ export const config = {
     process.env.GOOGLE_API_KEY ||
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
     "",
-  fireworksApiKey: process.env.FIREWORKS_API_KEY || "",
   qdrantUrl: process.env.QDRANT_URL || "http://localhost:6333",
   embeddingModel: "gemini-embedding-2-preview",
-  llmModel: "accounts/fireworks/models/qwen3p6-plus",
+  llmModel: "gemini-3.1-pro-preview",
   audioTranscriptionModel: "gemini-3.1-flash-lite-preview",
   embeddingDimension: 3072,
   chunkSize: 1000,

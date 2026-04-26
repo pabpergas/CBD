@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createFireworks } from "@ai-sdk/fireworks";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
@@ -15,7 +15,7 @@ import {
 import { config } from "../config.js";
 
 const router = Router();
-const fireworks = createFireworks({ apiKey: config.fireworksApiKey });
+const google = createGoogleGenerativeAI({ apiKey: config.googleApiKey });
 
 // Emisor SSE: emite citations por notebook en tiempo real
 const citationsBus = new EventEmitter();
@@ -121,7 +121,7 @@ router.post("/", async (req, res) => {
     const responseArtifacts: any[] = [];
 
     const result = streamText({
-      model: fireworks(config.llmModel),
+      model: google(config.llmModel),
       system: `Eres un asistente inteligente de RAG (Retrieval-Augmented Generation) que ayuda a los usuarios a consultar sus documentos almacenados en una base de datos vectorial (Qdrant).
 
 Notebook activo: "${notebook?.title || "Sin título"}"
@@ -165,9 +165,12 @@ REGLAS ESTRICTAS para artefactos:
 - Para reportlab: SOLO para gráficos, diagramas o layouts muy específicos. NO para texto largo.
 - Para openpyxl: workbook.save('/tmp/output/nombre.xlsx')
 - IMPORTANTE: cuando generes documentos con contenido de fuentes, incluye TODO el texto relevante, no resúmenes ni placeholders. El usuario espera un documento completo y profesional.
-- FLUJO OBLIGATORIO para documentos:
+- FLUJO para IMÁGENES (gráficas matplotlib, diagramas, PNG/JPG):
+  1. Llama "createArtifact" con el código que genera la imagen en /tmp/output/{nombre}.png
+  2. El archivo se entrega al usuario AUTOMÁTICAMENTE al terminar createArtifact — NO llames reviewDocument para imágenes.
+- FLUJO OBLIGATORIO para DOCUMENTOS Office (.docx, .xlsx):
   1. Crea el documento con "createArtifact" (genera .docx) — el usuario NO lo ve todavía
-  2. Llama "reviewDocument" — renderiza a imagen, otro Gemini lo revisa visualmente
+  2. Llama "reviewDocument" — renderiza a imagen, otro modelo lo revisa visualmente
   3. Si approved=false: lee la revisión, corrige el código, vuelve al paso 1
   4. Si approved=true: el PDF se genera y se envía AUTOMÁTICAMENTE al usuario
   5. Repite el ciclo crear→revisar hasta que esté aprobado (máximo 10 intentos)
@@ -354,7 +357,15 @@ REGLAS ESTRICTAS para artefactos:
           }) => {
             try {
               const result = await executeArtifact(code, filename, description, context);
-              // NO emitir al usuario todavía — esperar aprobación de reviewDocument
+              // Imágenes (gráficas matplotlib, etc.) se entregan directamente al cliente.
+              // Documentos Office esperan aprobación de reviewDocument antes de convertirse a PDF y emitirse.
+              const isImage = (result.mimeType || "").startsWith("image/");
+              if (isImage) {
+                responseArtifacts.push(result);
+                if (notebookId) {
+                  citationsBus.emit(`artifact:${notebookId}`, result);
+                }
+              }
               return { success: true, ...result };
             } catch (error: any) {
               return { success: false, error: error.message };
@@ -415,9 +426,11 @@ REGLAS ESTRICTAS para artefactos:
         },
       },
       providerOptions: {
-        fireworks: {
-          thinking: { type: "enabled", budgetTokens: 4096 },
-          reasoningHistory: "interleaved",
+        google: {
+          thinkingConfig: {
+            thinkingLevel: "low",
+            includeThoughts: true,
+          },
         },
       },
       stopWhen: stepCountIs(50),

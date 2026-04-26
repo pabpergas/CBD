@@ -1,11 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { createFireworks } from "@ai-sdk/fireworks";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { config } from "../config.js";
 
-const fireworks = createFireworks({ apiKey: config.fireworksApiKey });
+const google = createGoogleGenerativeAI({ apiKey: config.googleApiKey });
 
 const ARTIFACTS_DIR = path.resolve("artifacts");
 const WORKER_URL = process.env.PYTHON_WORKER_URL || "http://python-worker:8000";
@@ -137,15 +137,15 @@ export async function reviewArtifactVisually(
   try {
     const imageBuffer = fs.readFileSync(previewPath);
 
-    console.log(`[artifact] Enviando a Fireworks (${config.llmModel}) para revisión visual...`);
+    console.log(`[artifact] Enviando a Gemini (${config.llmModel}) para revisión visual...`);
 
     const { text } = await generateText({
-      model: fireworks(config.llmModel),
+      model: google(config.llmModel),
       messages: [
         {
           role: "user",
           content: [
-            { type: "image", image: imageBuffer, mediaType: "image/png" },
+            { type: "file", data: imageBuffer, mediaType: "image/png" },
             {
               type: "text",
               text: `Revisa este documento generado. Evalúa formato, legibilidad, layout y contenido.

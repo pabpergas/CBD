@@ -39,11 +39,6 @@ export default function ChatPanel({ notebook, notebooks, notebookId, onUploadCom
   // Rastrear artefactos y citas por mensaje
   const [artifactsMap, setArtifactsMap] = useState<Record<string, any[]>>({});
 
-  // Buffer de datos SSE pendientes — espera un mensaje del asistente al cual asociarse
-  const pendingCitationsRef = useRef<Citation[]>([]);
-  const pendingArtifactsRef = useRef<any[]>([]);
-  const lastAssociatedMsgRef = useRef<string | null>(null);
-
   // Mantener refs para que el closure del body del transporte siempre lea los valores más recientes
   const referencedIdsRef = useRef(referencedIds);
   referencedIdsRef.current = referencedIds;
@@ -80,57 +75,20 @@ export default function ChatPanel({ notebook, notebooks, notebookId, onUploadCom
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Acumular datos SSE según llegan
+  // Asociar datos SSE (citations/artifacts) al último mensaje del asistente.
+  // Se re-ejecuta cada vez que llegan nuevos datos o cambia el mensaje, así los
+  // artefactos que llegan DESPUÉS de las citations se muestran sin esperar a F5.
   useEffect(() => {
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistant) return;
+
     if (liveCitations.length > 0) {
-      pendingCitationsRef.current = liveCitations;
+      setCitationsMap((prev) => ({ ...prev, [lastAssistant.id]: liveCitations }));
     }
-  }, [liveCitations]);
-
-  useEffect(() => {
     if (liveArtifacts.length > 0) {
-      pendingArtifactsRef.current = liveArtifacts;
+      setArtifactsMap((prev) => ({ ...prev, [lastAssistant.id]: liveArtifacts }));
     }
-  }, [liveArtifacts]);
-
-  // Vaciar los datos SSE acumulados al último mensaje del asistente
-  useEffect(() => {
-    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!lastAssistant) return;
-    // Solo vaciar una vez por mensaje, y solo si hay datos pendientes
-    if (lastAssistant.id === lastAssociatedMsgRef.current) return;
-
-    const hasPendingCitations = pendingCitationsRef.current.length > 0;
-    const hasPendingArtifacts = pendingArtifactsRef.current.length > 0;
-
-    if (hasPendingCitations || hasPendingArtifacts) {
-      lastAssociatedMsgRef.current = lastAssistant.id;
-
-      if (hasPendingCitations) {
-        setCitationsMap((prev) => ({ ...prev, [lastAssistant.id]: pendingCitationsRef.current }));
-      }
-      if (hasPendingArtifacts) {
-        setArtifactsMap((prev) => ({ ...prev, [lastAssistant.id]: pendingArtifactsRef.current }));
-      }
-    }
-  }, [messages]);
-
-  // También vaciar al finalizar el flujo (captura eventos SSE que llegan tarde)
-  useEffect(() => {
-    if (isLoading) return;
-    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!lastAssistant) return;
-
-    const hasPendingCitations = pendingCitationsRef.current.length > 0;
-    const hasPendingArtifacts = pendingArtifactsRef.current.length > 0;
-
-    if (hasPendingCitations) {
-      setCitationsMap((prev) => ({ ...prev, [lastAssistant.id]: pendingCitationsRef.current }));
-    }
-    if (hasPendingArtifacts) {
-      setArtifactsMap((prev) => ({ ...prev, [lastAssistant.id]: pendingArtifactsRef.current }));
-    }
-  }, [isLoading, messages]);
+  }, [messages, liveCitations, liveArtifacts]);
 
   // Cargar mensajes guardados al cambiar de notebook
   useEffect(() => {
@@ -186,9 +144,6 @@ export default function ChatPanel({ notebook, notebooks, notebookId, onUploadCom
     setInput("");
     // Reiniciar datos SSE en vivo para el nuevo mensaje
     resetLive();
-    pendingCitationsRef.current = [];
-    pendingArtifactsRef.current = [];
-    lastAssociatedMsgRef.current = null;
     await sendMessage({ text });
   };
 

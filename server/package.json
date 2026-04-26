@@ -8,10 +8,10 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@ai-sdk/fireworks": "^1.0.0",
     "@ai-sdk/google": "^3.0.59",
     "@google/genai": "^1.48.0",
     "@qdrant/js-client-rest": "^1.13.0",
+    "adm-zip": "^0.5.16",
     "ai": "^6.0.149",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -23,6 +23,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/mime-types": "^3.0.1",
