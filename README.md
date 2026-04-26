@@ -40,11 +40,6 @@ El sistema utiliza un enfoque híbrido de IA: **Google Gemini** para procesamien
 * Pulsa en **"Get API key"** -> **"Create API key"**.
 * Copia y pega la clave en `GOOGLE_API_KEY` y `GOOGLE_GENERATIVE_AI_API_KEY`.
 
-#### **B. Fireworks API Key**
-* Regístrate en [fireworks.ai](https://fireworks.ai/).
-* Entra en **Settings** -> **API Keys**.
-* Crea una nueva clave y pégala en `FIREWORKS_API_KEY`.
-
 ### 4. Despliegue con Docker Compose 🐳
 El proyecto se compone de **4 microservicios** que se levantan simultáneamente:
 
